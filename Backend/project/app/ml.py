@@ -7,7 +7,7 @@ from sklearn.linear_model import LinearRegression
 from datetime import datetime, timedelta
 
 # === 1. Load Data ===
-df = pd.read_csv('F:\projects\Bookkeeping\Backend\project\app\sales_data.csv')
+df = pd.read_csv(r'F:\projects\Bookkeeping\Backend\project\app\sales_data.csv')
 
 # Convert date column to datetime
 df['date'] = pd.to_datetime(df['date'])
