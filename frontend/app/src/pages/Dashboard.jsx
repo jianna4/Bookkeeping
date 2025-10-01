@@ -33,7 +33,7 @@ function App() {
   const [results, setResults] = useState(null);
   const [priceData, setPriceData] = useState(null);
   const [revenueData, setRevenueData] = useState(null);
-  const [basePrice, setBasePrice] = useState(100);
+  const [basePrice, setBasePrice] = useState(100); // Default in KSh
 
   // Run analysis on mount
   useEffect(() => {
@@ -46,16 +46,18 @@ function App() {
     try {
       const res = await axios.post(`${API_BASE}/analyze/`);
       setResults(res.data);
-      // Now get plots
+
+      // Fetch plots
       const trendRes = await axios.get(`${API_BASE}/plot/trend/`);
       const forecastRes = await axios.get(`${API_BASE}/plot/forecast/`);
+
       setResults((prev) => ({
         ...prev,
         trendPlot: trendRes.data.plot,
         forecastPlot: forecastRes.data.plot,
       }));
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to analyze');
+      setError(err.response?.data?.error || 'Failed to analyze sales data');
     }
     setLoading(false);
   };
@@ -78,6 +80,7 @@ function App() {
     }
   };
 
+  // Recalculate whenever basePrice or results change
   useEffect(() => {
     if (results && basePrice > 0) {
       handlePriceSuggestion();
@@ -110,14 +113,18 @@ function App() {
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Base Price ($)
+                Base Price (KSh)
               </label>
               <input
                 type="number"
                 step="0.01"
                 value={basePrice}
-                onChange={(e) => setBasePrice(parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-32 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                onChange={(e) => {
+                  const value = e.target.value === '' ? '' : parseFloat(e.target.value) || 0;
+                  setBasePrice(value); // Allow empty temporarily
+                }}
+                placeholder="Enter price"
+                className="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-32 focus:ring-2 focus:ring-blue-500 focus:outline-none text-center font-medium"
               />
             </div>
             <button
@@ -133,12 +140,16 @@ function App() {
         {/* Metrics Grid */}
         {priceData && revenueData && (
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <MetricCard title="Slope" value={results?.slope?.toFixed(3)} change="" />
-            <MetricCard title="R² Score" value={results?.r2?.toFixed(3)} change="" />
-            <MetricCard title="Suggested Price" value={`$${priceData.suggested_price}`} color="green" />
+            <MetricCard title="Trend Slope" value={results?.slope?.toFixed(3)} unit="" />
+            <MetricCard title="Fit Quality (R²)" value={results?.r2?.toFixed(3)} unit="" />
             <MetricCard
-              title="Potential Revenue Gain"
-              value={`$${(revenueData.revenue_suggested_price - revenueData.revenue_base_price).toFixed(2)}`}
+              title="Suggested Price"
+              value={`KSh ${priceData.suggested_price.toFixed(2)}`}
+              color="green"
+            />
+            <MetricCard
+              title="Potential Weekly Gain"
+              value={`KSh ${(revenueData.revenue_suggested_price - revenueData.revenue_base_price).toFixed(2)}`}
               color={revenueData.revenue_suggested_price > revenueData.revenue_base_price ? 'green' : 'red'}
             />
           </section>
@@ -150,9 +161,13 @@ function App() {
           <div className="bg-white p-6 rounded-xl shadow-md">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Sales Trend & Forecast</h3>
             {results?.trendPlot ? (
-              <img src={`data:image/png;base64,${results.trendPlot}`} alt="Trend" className="w-full rounded-lg" />
+              <img
+                src={`data:image/png;base64,${results.trendPlot}`}
+                alt="Sales Trend"
+                className="w-full rounded-lg"
+              />
             ) : (
-              <p className="text-gray-500">Loading trend chart...</p>
+              <p className="text-gray-500 italic">Generating trend chart...</p>
             )}
           </div>
 
@@ -160,9 +175,13 @@ function App() {
           <div className="bg-white p-6 rounded-xl shadow-md">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Next 7 Days Forecast</h3>
             {results?.forecastPlot ? (
-              <img src={`data:image/png;base64,${results.forecastPlot}`} alt="Forecast" className="w-full rounded-lg" />
+              <img
+                src={`data:image/png;base64,${results.forecastPlot}`}
+                alt="Forecast"
+                className="w-full rounded-lg"
+              />
             ) : (
-              <p className="text-gray-500">Loading forecast...</p>
+              <p className="text-gray-500 italic">Generating forecast...</p>
             )}
           </div>
         </div>
@@ -170,15 +189,15 @@ function App() {
         {/* Revenue Breakdown */}
         {revenueData && (
           <section className="mt-8 bg-white p-6 rounded-xl shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-6">Revenue Comparison</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-6">Weekly Revenue Comparison</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg">
-                <span className="font-medium text-gray-700">At Base Price (${revenueData.base_price})</span>
-                <span className="text-xl font-bold text-blue-700">${revenueData.revenue_base_price}</span>
+                <span className="font-medium text-gray-700">At Base Price (KSh {revenueData.base_price})</span>
+                <span className="text-xl font-bold text-blue-700">KSh {revenueData.revenue_base_price.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg">
-                <span className="font-medium text-gray-700">At Suggested Price (${revenueData.suggested_price})</span>
-                <span className="text-xl font-bold text-green-700">${revenueData.revenue_suggested_price}</span>
+                <span className="font-medium text-gray-700">At Suggested Price (KSh {revenueData.suggested_price})</span>
+                <span className="text-xl font-bold text-green-700">KSh {revenueData.revenue_suggested_price.toFixed(2)}</span>
               </div>
             </div>
           </section>
@@ -189,7 +208,7 @@ function App() {
 }
 
 // Reusable Metric Card
-function MetricCard({ title, value, color = 'gray', change = '' }) {
+function MetricCard({ title, value, color = 'gray', unit = '' }) {
   const colorClasses = {
     green: 'text-green-700 bg-green-50',
     red: 'text-red-700 bg-red-50',
@@ -202,7 +221,7 @@ function MetricCard({ title, value, color = 'gray', change = '' }) {
       <p className={`mt-1 text-2xl font-bold ${colorClasses[color] || colorClasses.gray} px-3 py-1 rounded-md inline-block`}>
         {value}
       </p>
-      {change && <p className="mt-2 text-sm text-green-600">{change}</p>}
+      {unit && <p className="text-xs text-gray-500 mt-1">{unit}</p>}
     </div>
   );
 }
